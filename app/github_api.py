@@ -1,12 +1,35 @@
 import requests
+import base64
+import os
+
+from dotenv import load_dotenv
+
+
+# Load environment variables from .env
+load_dotenv()
+
+
+# Get GitHub token
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+
+# GitHub request headers
+HEADERS = {
+    "Accept": "application/vnd.github+json"
+}
+
+if GITHUB_TOKEN:
+    HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
 
 def get_repository(owner, repo):
+
     url = f"https://api.github.com/repos/{owner}/{repo}"
 
-    response = requests.get(url)
-
-    print("Repository API:", response.status_code)
+    response = requests.get(
+        url,
+        headers=HEADERS
+    )
 
     if response.status_code != 200:
         raise Exception(
@@ -17,13 +40,30 @@ def get_repository(owner, repo):
 
 
 def get_repository_contents(owner, repo, path=""):
+
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
 
-    print("Contents API URL:", url)
+    response = requests.get(
+        url,
+        headers=HEADERS
+    )
 
-    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(
+            f"GitHub API error: {response.status_code}"
+        )
 
-    print("Contents API Status:", response.status_code)
+    return response.json()
+
+
+def get_file_content(owner, repo, path):
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+
+    response = requests.get(
+        url,
+        headers=HEADERS
+    )
 
     if response.status_code != 200:
         raise Exception(
@@ -32,15 +72,16 @@ def get_repository_contents(owner, repo, path=""):
 
     data = response.json()
 
-    print("Contents returned:")
+    encoded_content = data.get("content", "")
 
-    for item in data:
-        print(
-            item.get("name"),
-            "->",
-            item.get("type"),
-            "->",
-            item.get("path")
-        )
+    if not encoded_content:
+        return "No content available."
 
-    return data
+    decoded_content = base64.b64decode(
+        encoded_content
+    ).decode(
+        "utf-8",
+        errors="replace"
+    )
+
+    return decoded_content
