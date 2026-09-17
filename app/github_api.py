@@ -6,9 +6,9 @@ def get_repository(owner, repository):
 
     response = requests.get(url)
 
-    if response.status_code != 200:
-        raise Exception(
-            f"GitHub API request failed: {response.status_code}"
-        )
+    if response.status_code == 404:
+        raise ValueError("Repository not found")
+
+    response.raise_for_status()
 
     return response.json()
