@@ -575,12 +575,12 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
-    # Repository Files
+        # --------------------------------
+    # Repository File Explorer
     # --------------------------------
 
     st.subheader(
-        "📂 Repository Files"
+        "📂 Repository File Explorer"
     )
 
     try:
@@ -593,15 +593,44 @@ if st.session_state.repository_analyzed:
         if all_files:
 
             # --------------------------------
-            # Search Files
+            # Search and Filter
             # --------------------------------
 
-            search_text = st.text_input(
-                "🔎 Search files",
-                placeholder=(
-                    "Example: streamlit_app.py"
+            search_col, filter_col = st.columns(2)
+
+            with search_col:
+
+                search_text = st.text_input(
+                    "🔎 Search files",
+                    placeholder=(
+                        "Example: streamlit_app.py"
+                    ),
+                    key="repository_file_search"
                 )
-            )
+
+            with filter_col:
+
+                file_types = sorted(
+                    set(
+                        get_language_from_file(
+                            file["path"]
+                        )
+                        for file in all_files
+                    )
+                )
+
+                selected_type = st.selectbox(
+                    "🔤 Filter by file type",
+                    ["All"] + file_types,
+                    key="repository_file_type"
+                )
+
+
+            # --------------------------------
+            # Apply Filters
+            # --------------------------------
+
+            filtered_files = all_files
 
             if search_text:
 
@@ -609,16 +638,27 @@ if st.session_state.repository_analyzed:
 
                     file
 
-                    for file in all_files
+                    for file in filtered_files
 
                     if search_text.lower()
                     in file["path"].lower()
 
                 ]
 
-            else:
 
-                filtered_files = all_files
+            if selected_type != "All":
+
+                filtered_files = [
+
+                    file
+
+                    for file in filtered_files
+
+                    if get_language_from_file(
+                        file["path"]
+                    ) == selected_type
+
+                ]
 
 
             # --------------------------------
@@ -627,10 +667,21 @@ if st.session_state.repository_analyzed:
 
             st.write(
                 f"Showing "
-                f"{len(filtered_files)} "
+                f"**{len(filtered_files)}** "
                 f"of "
-                f"{len(all_files)} files"
+                f"**{len(all_files)}** files"
             )
+
+
+            # --------------------------------
+            # No Results
+            # --------------------------------
+
+            if not filtered_files:
+
+                st.info(
+                    "No files match your search/filter."
+                )
 
 
             # --------------------------------
@@ -641,8 +692,14 @@ if st.session_state.repository_analyzed:
 
                 file_path = file["path"]
 
+                file_language = (
+                    get_language_from_file(
+                        file_path
+                    )
+                )
+
                 if st.button(
-                    f"📄 {file_path}",
+                    f"📄 {file_path}  •  {file_language}",
                     key=f"file_{file_path}"
                 ):
 
@@ -688,7 +745,6 @@ if st.session_state.repository_analyzed:
         st.error(
             f"Unable to load repository files: {e}"
         )
-
 
     # --------------------------------
     # Source Code Viewer
