@@ -353,7 +353,57 @@ if st.session_state.repository_analyzed:
                 f"({summary['html_url']})"
             )
 
+        # --------------------------------
+    # Repository Health Dashboard
+    # --------------------------------
 
+    st.subheader(
+        "🩺 Repository Health Dashboard"
+    )
+
+    health_col1, health_col2, health_col3 = st.columns(3)
+
+    with health_col1:
+
+        if summary["description"]:
+            st.success("✅ Description available")
+        else:
+            st.warning("⚠️ No description")
+
+        if st.session_state.readme:
+            st.success("✅ README available")
+        else:
+            st.warning("⚠️ README missing")
+
+    with health_col2:
+
+        if summary["language"]:
+            st.success(
+                f"✅ Language: {summary['language']}"
+            )
+        else:
+            st.warning("⚠️ Language not specified")
+
+        if summary["default_branch"]:
+            st.success(
+                f"🌿 Branch: {summary['default_branch']}"
+            )
+
+    with health_col3:
+
+        if summary["open_issues"] == 0:
+            st.success("✅ No open issues")
+        else:
+            st.warning(
+                f"⚠️ {summary['open_issues']} open issues"
+            )
+
+        if st.session_state.commits:
+            st.success("✅ Commit history available")
+        else:
+            st.warning("⚠️ No commits found")
+
+    st.divider()
     # --------------------------------
     # File Statistics
     # --------------------------------
