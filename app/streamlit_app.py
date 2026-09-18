@@ -5,7 +5,9 @@ from app.repository_service import (
     get_repository_summary,
     get_repository_files,
     get_all_repository_files,
-    get_source_code
+    get_source_code,
+    get_readme,
+    get_recent_commits
 )
 
 
@@ -73,6 +75,12 @@ if "source_code" not in st.session_state:
 if "scroll_to_code" not in st.session_state:
     st.session_state.scroll_to_code = False
 
+if "readme" not in st.session_state:
+    st.session_state.readme = None
+
+if "commits" not in st.session_state:
+    st.session_state.commits = None
+
 
 # --------------------------------
 # Page
@@ -134,6 +142,8 @@ if st.button(
             st.session_state.selected_file = None
             st.session_state.source_code = None
             st.session_state.scroll_to_code = False
+            st.session_state.readme = None
+            st.session_state.commits = None
 
             st.rerun()
 
@@ -156,9 +166,9 @@ if st.session_state.repository_analyzed:
     repository = st.session_state.repository
 
 
-    # --------------------------------
+    # ========================================
     # Repository Summary
-    # --------------------------------
+    # ========================================
 
     st.success("Repository found!")
 
@@ -172,9 +182,9 @@ if st.session_state.repository_analyzed:
     )
 
 
-    # --------------------------------
+    # ========================================
     # Statistics
-    # --------------------------------
+    # ========================================
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -210,9 +220,9 @@ if st.session_state.repository_analyzed:
     st.divider()
 
 
-    # --------------------------------
+    # ========================================
     # Repository Information
-    # --------------------------------
+    # ========================================
 
     st.subheader(
         "📊 Repository Information"
@@ -259,11 +269,126 @@ if st.session_state.repository_analyzed:
     )
 
 
-    # --------------------------------
-    # Repository Files
-    # --------------------------------
+    # ========================================
+    # README
+    # ========================================
 
     st.divider()
+
+    st.subheader("📖 README")
+
+    try:
+
+        if st.session_state.readme is None:
+
+            with st.spinner("Loading README..."):
+
+                st.session_state.readme = get_readme(
+                    username,
+                    repository
+                )
+
+
+        if st.session_state.readme:
+
+            st.markdown(
+                st.session_state.readme
+            )
+
+        else:
+
+            st.info(
+                "No README.md file found in this repository."
+            )
+
+    except Exception as error:
+
+        st.warning(
+            f"Could not load README: {error}"
+        )
+
+
+    # ========================================
+    # Recent Commits
+    # ========================================
+
+    st.divider()
+
+    st.subheader(
+        "📜 Recent Commits"
+    )
+
+    try:
+
+        if st.session_state.commits is None:
+
+            with st.spinner(
+                "Loading recent commits..."
+            ):
+
+                st.session_state.commits = (
+                    get_recent_commits(
+                        username,
+                        repository,
+                        10
+                    )
+                )
+
+
+        commits = st.session_state.commits
+
+
+        if not commits:
+
+            st.info(
+                "No commits found."
+            )
+
+        else:
+
+            for commit in commits:
+
+                st.markdown(
+                    f"### 📝 {commit['message']}"
+                )
+
+                st.write(
+                    f"👤 **Author:** "
+                    f"{commit['author']}"
+                )
+
+                if commit["date"]:
+
+                    st.write(
+                        f"📅 **Date:** "
+                        f"{commit['date'][:10]}"
+                    )
+
+                st.write(
+                    f"🔑 **Commit:** "
+                    f"`{commit['sha']}`"
+                )
+
+                if commit["url"]:
+
+                    st.markdown(
+                        f"[🔗 View commit on GitHub]"
+                        f"({commit['url']})"
+                    )
+
+                st.divider()
+
+
+    except Exception as error:
+
+        st.warning(
+            f"Could not load commits: {error}"
+        )
+
+
+    # ========================================
+    # Repository Files
+    # ========================================
 
     st.subheader(
         "📁 Repository Files"
@@ -297,11 +422,6 @@ if st.session_state.repository_analyzed:
                 repository
             )
 
-
-            # --------------------------------
-            # Filter Search Results
-            # --------------------------------
-
             search_lower = search_text.lower()
 
             matching_files = [
@@ -314,10 +434,6 @@ if st.session_state.repository_analyzed:
             ]
 
 
-            # --------------------------------
-            # Display Search Results
-            # --------------------------------
-
             if not matching_files:
 
                 st.info(
@@ -329,7 +445,6 @@ if st.session_state.repository_analyzed:
                 st.write(
                     f"**Found {len(matching_files)} file(s)**"
                 )
-
 
                 for file in matching_files:
 
@@ -358,7 +473,7 @@ if st.session_state.repository_analyzed:
 
 
         # ========================================
-        # NORMAL FOLDER BROWSING MODE
+        # NORMAL FOLDER BROWSING
         # ========================================
 
         else:
@@ -368,10 +483,6 @@ if st.session_state.repository_analyzed:
                 repository
             )
 
-
-            # --------------------------------
-            # Display Files
-            # --------------------------------
 
             if not files:
 
@@ -401,20 +512,11 @@ if st.session_state.repository_analyzed:
 
                         for folder_file in folder_files:
 
-                            # --------------------------------
-                            # Nested Folder
-                            # --------------------------------
-
                             if folder_file["type"] == "dir":
 
                                 st.write(
                                     f"📂 {folder_file['name']}"
                                 )
-
-
-                            # --------------------------------
-                            # File Inside Folder
-                            # --------------------------------
 
                             else:
 
@@ -479,17 +581,13 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================
     # Source Code Viewer
-    # --------------------------------
+    # ========================================
 
     if st.session_state.source_code:
 
         st.divider()
-
-        # --------------------------------
-        # Anchor
-        # --------------------------------
 
         st.markdown(
             '<div id="source-code"></div>',
@@ -512,7 +610,6 @@ if st.session_state.repository_analyzed:
         language = get_language_from_file(
             st.session_state.selected_file
         )
-
 
         st.caption(
             f"Detected language: {language}"
@@ -574,3 +671,4 @@ if st.session_state.repository_analyzed:
             )
 
             st.session_state.scroll_to_code = False
+            

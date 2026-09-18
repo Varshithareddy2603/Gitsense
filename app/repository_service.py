@@ -1,9 +1,14 @@
 from app.github_api import (
     get_repository,
     get_repository_contents,
-    get_file_content
+    get_file_content,
+    get_repository_commits
 )
 
+
+# --------------------------------
+# Repository Summary
+# --------------------------------
 
 def get_repository_summary(owner, repo):
 
@@ -30,6 +35,10 @@ def get_repository_summary(owner, repo):
     }
 
 
+# --------------------------------
+# Get Repository Files
+# --------------------------------
+
 def get_repository_files(owner, repo, path=""):
 
     contents = get_repository_contents(
@@ -51,6 +60,11 @@ def get_repository_files(owner, repo, path=""):
     return files
 
 
+# --------------------------------
+# Get All Repository Files
+# Recursive Search
+# --------------------------------
+
 def get_all_repository_files(
     owner,
     repo,
@@ -67,6 +81,10 @@ def get_all_repository_files(
 
     for item in contents:
 
+        # --------------------------------
+        # File
+        # --------------------------------
+
         if item["type"] == "file":
 
             all_files.append({
@@ -74,6 +92,11 @@ def get_all_repository_files(
                 "path": item["path"],
                 "type": "file"
             })
+
+
+        # --------------------------------
+        # Folder
+        # --------------------------------
 
         elif item["type"] == "dir":
 
@@ -90,10 +113,105 @@ def get_all_repository_files(
     return all_files
 
 
-def get_source_code(owner, repo, path):
+# --------------------------------
+# Get Source Code
+# --------------------------------
+
+def get_source_code(
+    owner,
+    repo,
+    path
+):
 
     return get_file_content(
         owner,
         repo,
         path
     )
+
+
+# --------------------------------
+# Get README
+# --------------------------------
+
+def get_readme(
+    owner,
+    repo
+):
+
+    all_files = get_all_repository_files(
+        owner,
+        repo
+    )
+
+    for file in all_files:
+
+        if file["name"].lower() == "readme.md":
+
+            return get_file_content(
+                owner,
+                repo,
+                file["path"]
+            )
+
+    return None
+
+
+# --------------------------------
+# Get Recent Commits
+# --------------------------------
+
+def get_recent_commits(
+    owner,
+    repo,
+    limit=10
+):
+
+    commits = get_repository_commits(
+        owner,
+        repo,
+        limit
+    )
+
+    recent_commits = []
+
+    for commit in commits:
+
+        commit_data = commit.get(
+            "commit",
+            {}
+        )
+
+        author = commit_data.get(
+            "author",
+            {}
+        )
+
+        recent_commits.append({
+            "sha": commit.get(
+                "sha",
+                ""
+            )[:7],
+
+            "message": commit_data.get(
+                "message",
+                "No commit message"
+            ).split("\n")[0],
+
+            "author": author.get(
+                "name",
+                "Unknown"
+            ),
+
+            "date": author.get(
+                "date",
+                ""
+            ),
+
+            "url": commit.get(
+                "html_url",
+                ""
+            )
+        })
+
+    return recent_commits

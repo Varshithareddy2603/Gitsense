@@ -5,26 +5,47 @@ import os
 from dotenv import load_dotenv
 
 
-# Load environment variables from .env
+# --------------------------------
+# Load Environment Variables
+# --------------------------------
+
 load_dotenv()
 
 
-# Get GitHub token
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+# --------------------------------
+# GitHub Token
+# --------------------------------
+
+GITHUB_TOKEN = os.getenv(
+    "GITHUB_TOKEN"
+)
 
 
-# GitHub request headers
+# --------------------------------
+# GitHub Request Headers
+# --------------------------------
+
 HEADERS = {
     "Accept": "application/vnd.github+json"
 }
 
 if GITHUB_TOKEN:
-    HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
+    HEADERS["Authorization"] = (
+        f"Bearer {GITHUB_TOKEN}"
+    )
+
+
+# --------------------------------
+# Get Repository
+# --------------------------------
 
 def get_repository(owner, repo):
 
-    url = f"https://api.github.com/repos/{owner}/{repo}"
+    url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}"
+    )
 
     response = requests.get(
         url,
@@ -32,16 +53,29 @@ def get_repository(owner, repo):
     )
 
     if response.status_code != 200:
+
         raise Exception(
-            f"GitHub API error: {response.status_code}"
+            f"GitHub API error: "
+            f"{response.status_code}"
         )
 
     return response.json()
 
 
-def get_repository_contents(owner, repo, path=""):
+# --------------------------------
+# Get Repository Contents
+# --------------------------------
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+def get_repository_contents(
+    owner,
+    repo,
+    path=""
+):
+
+    url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/contents/{path}"
+    )
 
     response = requests.get(
         url,
@@ -49,16 +83,29 @@ def get_repository_contents(owner, repo, path=""):
     )
 
     if response.status_code != 200:
+
         raise Exception(
-            f"GitHub API error: {response.status_code}"
+            f"GitHub API error: "
+            f"{response.status_code}"
         )
 
     return response.json()
 
 
-def get_file_content(owner, repo, path):
+# --------------------------------
+# Get File Content
+# --------------------------------
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+def get_file_content(
+    owner,
+    repo,
+    path
+):
+
+    url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/contents/{path}"
+    )
 
     response = requests.get(
         url,
@@ -66,15 +113,21 @@ def get_file_content(owner, repo, path):
     )
 
     if response.status_code != 200:
+
         raise Exception(
-            f"GitHub API error: {response.status_code}"
+            f"GitHub API error: "
+            f"{response.status_code}"
         )
 
     data = response.json()
 
-    encoded_content = data.get("content", "")
+    encoded_content = data.get(
+        "content",
+        ""
+    )
 
     if not encoded_content:
+
         return "No content available."
 
     decoded_content = base64.b64decode(
@@ -85,3 +138,38 @@ def get_file_content(owner, repo, path):
     )
 
     return decoded_content
+
+
+# --------------------------------
+# Get Repository Commits
+# --------------------------------
+
+def get_repository_commits(
+    owner,
+    repo,
+    limit=10
+):
+
+    url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/commits"
+    )
+
+    params = {
+        "per_page": limit
+    }
+
+    response = requests.get(
+        url,
+        headers=HEADERS,
+        params=params
+    )
+
+    if response.status_code != 200:
+
+        raise Exception(
+            f"GitHub API error: "
+            f"{response.status_code}"
+        )
+
+    return response.json()
