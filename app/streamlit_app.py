@@ -89,6 +89,9 @@ if "readme" not in st.session_state:
 if "commits" not in st.session_state:
     st.session_state.commits = []
 
+if "show_all_commits" not in st.session_state:
+    st.session_state.show_all_commits = False
+
 if "file_statistics" not in st.session_state:
     st.session_state.file_statistics = {}
 
@@ -199,6 +202,10 @@ if st.button(
                 st.session_state.file_statistics = (
                     file_statistics
                 )
+
+                # Reset commit view when analyzing
+                # a new repository
+                st.session_state.show_all_commits = False
 
                 st.session_state.selected_file = None
 
@@ -459,43 +466,107 @@ if st.session_state.repository_analyzed:
 
 
     # --------------------------------
-    # Recent Commits
+    # Commits
     # --------------------------------
 
     st.subheader(
-        "🕐 Recent Commits"
+        "🕐 Commits"
     )
 
     commits = st.session_state.commits
 
     if commits:
 
-        for commit in commits:
+        # --------------------------------
+        # Latest Commit
+        # --------------------------------
+
+        if not st.session_state.show_all_commits:
+
+            latest_commit = commits[0]
 
             st.markdown(
-                f"### `{commit['sha']}`"
+                f"### `{latest_commit['sha']}`"
             )
 
             st.write(
-                f"**{commit['message']}**"
+                f"**{latest_commit['message']}**"
             )
 
             st.write(
-                f"Author: {commit['author']}"
+                f"Author: {latest_commit['author']}"
             )
 
             st.write(
-                f"Date: {commit['date']}"
+                f"Date: {latest_commit['date']}"
             )
 
-            if commit["url"]:
+            if latest_commit["url"]:
 
                 st.markdown(
                     f"[View Commit on GitHub]"
-                    f"({commit['url']})"
+                    f"({latest_commit['url']})"
                 )
 
             st.divider()
+
+            if st.button(
+                "📜 View all commits",
+                key="view_all_commits"
+            ):
+
+                st.session_state.show_all_commits = True
+
+                st.rerun()
+
+
+        # --------------------------------
+        # All Commits
+        # --------------------------------
+
+        else:
+
+            st.write(
+                f"Showing {len(commits)} commits"
+            )
+
+            if st.button(
+                "⬆️ Show latest commit",
+                key="show_latest_commit"
+            ):
+
+                st.session_state.show_all_commits = False
+
+                st.rerun()
+
+            st.divider()
+
+            for commit in commits:
+
+                st.markdown(
+                    f"### `{commit['sha']}`"
+                )
+
+                st.write(
+                    f"**{commit['message']}**"
+                )
+
+                st.write(
+                    f"Author: {commit['author']}"
+                )
+
+                st.write(
+                    f"Date: {commit['date']}"
+                )
+
+                if commit["url"]:
+
+                    st.markdown(
+                        f"[View Commit on GitHub]"
+                        f"({commit['url']})"
+                    )
+
+                st.divider()
 
     else:
 
