@@ -62,7 +62,6 @@ def get_repository_files(owner, repo, path=""):
 
 # --------------------------------
 # Get All Repository Files
-# Recursive Search
 # --------------------------------
 
 def get_all_repository_files(
@@ -81,10 +80,6 @@ def get_all_repository_files(
 
     for item in contents:
 
-        # --------------------------------
-        # File
-        # --------------------------------
-
         if item["type"] == "file":
 
             all_files.append({
@@ -92,11 +87,6 @@ def get_all_repository_files(
                 "path": item["path"],
                 "type": "file"
             })
-
-
-        # --------------------------------
-        # Folder
-        # --------------------------------
 
         elif item["type"] == "dir":
 
@@ -215,3 +205,80 @@ def get_recent_commits(
         })
 
     return recent_commits
+
+
+# --------------------------------
+# File Extension Detection
+# --------------------------------
+
+def get_file_extension(filename):
+
+    if "." not in filename:
+
+        return "Other"
+
+    extension = filename.rsplit(
+        ".",
+        1
+    )[1].lower()
+
+    extension_map = {
+        "py": "Python",
+        "js": "JavaScript",
+        "jsx": "JavaScript",
+        "ts": "TypeScript",
+        "tsx": "TypeScript",
+        "java": "Java",
+        "c": "C",
+        "cpp": "C++",
+        "h": "C/C++ Header",
+        "hpp": "C++ Header",
+        "cs": "C#",
+        "html": "HTML",
+        "css": "CSS",
+        "json": "JSON",
+        "xml": "XML",
+        "sql": "SQL",
+        "md": "Markdown",
+        "yaml": "YAML",
+        "yml": "YAML",
+        "sh": "Shell",
+        "bat": "Batch",
+        "txt": "Text"
+    }
+
+    return extension_map.get(
+        extension,
+        extension.upper()
+    )
+
+
+# --------------------------------
+# Get File Statistics
+# --------------------------------
+
+def get_file_statistics(
+    owner,
+    repo
+):
+
+    all_files = get_all_repository_files(
+        owner,
+        repo
+    )
+
+    statistics = {}
+
+    for file in all_files:
+
+        language = get_file_extension(
+            file["name"]
+        )
+
+        if language not in statistics:
+
+            statistics[language] = 0
+
+        statistics[language] += 1
+
+    return statistics
