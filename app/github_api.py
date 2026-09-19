@@ -141,22 +141,21 @@ def get_file_content(
 
 
 # --------------------------------
-# Get Repository Commits
+# Get Repository Branches
 # --------------------------------
 
-def get_repository_commits(
+def get_repository_branches(
     owner,
-    repo,
-    limit=10
+    repo
 ):
 
     url = (
         f"https://api.github.com/repos/"
-        f"{owner}/{repo}/commits"
+        f"{owner}/{repo}/branches"
     )
 
     params = {
-        "per_page": limit
+        "per_page": 100
     }
 
     response = requests.get(
@@ -173,3 +172,95 @@ def get_repository_commits(
         )
 
     return response.json()
+
+
+# --------------------------------
+# Get Repository Commits
+# --------------------------------
+
+def get_repository_commits(
+    owner,
+    repo,
+    limit=10
+):
+
+    branches = get_repository_branches(
+        owner,
+        repo
+    )
+
+    all_commits = {}
+
+    # --------------------------------
+    # Fetch commits from each branch
+    # --------------------------------
+
+    for branch in branches:
+
+        branch_name = branch.get(
+            "name"
+        )
+
+        if not branch_name:
+
+            continue
+
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/commits"
+        )
+
+        params = {
+            "sha": branch_name,
+            "per_page": limit
+        }
+
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            params=params
+        )
+
+        if response.status_code != 200:
+
+            continue
+
+        branch_commits = response.json()
+
+        for commit in branch_commits:
+
+            sha = commit.get(
+                "sha"
+            )
+
+            if sha:
+
+                all_commits[sha] = commit
+
+    # --------------------------------
+    # Sort commits by date
+    # --------------------------------
+
+    commits = list(
+        all_commits.values()
+    )
+
+    commits.sort(
+        key=lambda commit: (
+            commit.get(
+                "commit",
+                {}
+            )
+            .get(
+                "author",
+                {}
+            )
+            .get(
+                "date",
+                ""
+            )
+        ),
+        reverse=True
+    )
+
+    return commits[:limit]

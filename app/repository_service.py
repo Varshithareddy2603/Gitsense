@@ -6,16 +6,8 @@ from app.github_api import (
 )
 
 
-# --------------------------------
-# Repository Summary
-# --------------------------------
-
 def get_repository_summary(owner, repo):
-
-    repository = get_repository(
-        owner,
-        repo
-    )
+    repository = get_repository(owner, repo)
 
     return {
         "name": repository.get("name"),
@@ -24,7 +16,7 @@ def get_repository_summary(owner, repo):
         "language": repository.get("language"),
         "stars": repository.get("stargazers_count"),
         "forks": repository.get("forks_count"),
-        "watchers": repository.get("watchers_count"),
+        "watchers": repository.get("watchers"),
         "open_issues": repository.get("open_issues_count"),
         "size": repository.get("size"),
         "default_branch": repository.get("default_branch"),
@@ -35,22 +27,12 @@ def get_repository_summary(owner, repo):
     }
 
 
-# --------------------------------
-# Get Repository Files
-# --------------------------------
-
 def get_repository_files(owner, repo, path=""):
-
-    contents = get_repository_contents(
-        owner,
-        repo,
-        path
-    )
+    contents = get_repository_contents(owner, repo, path)
 
     files = []
 
     for item in contents:
-
         files.append({
             "name": item["name"],
             "path": item["path"],
@@ -60,28 +42,14 @@ def get_repository_files(owner, repo, path=""):
     return files
 
 
-# --------------------------------
-# Get All Repository Files
-# --------------------------------
-
-def get_all_repository_files(
-    owner,
-    repo,
-    path=""
-):
-
-    contents = get_repository_contents(
-        owner,
-        repo,
-        path
-    )
+def get_all_repository_files(owner, repo, path=""):
+    contents = get_repository_contents(owner, repo, path)
 
     all_files = []
 
     for item in contents:
 
         if item["type"] == "file":
-
             all_files.append({
                 "name": item["name"],
                 "path": item["path"],
@@ -89,55 +57,27 @@ def get_all_repository_files(
             })
 
         elif item["type"] == "dir":
-
             folder_files = get_all_repository_files(
                 owner,
                 repo,
                 item["path"]
             )
 
-            all_files.extend(
-                folder_files
-            )
+            all_files.extend(folder_files)
 
     return all_files
 
 
-# --------------------------------
-# Get Source Code
-# --------------------------------
-
-def get_source_code(
-    owner,
-    repo,
-    path
-):
-
-    return get_file_content(
-        owner,
-        repo,
-        path
-    )
+def get_source_code(owner, repo, path):
+    return get_file_content(owner, repo, path)
 
 
-# --------------------------------
-# Get README
-# --------------------------------
-
-def get_readme(
-    owner,
-    repo
-):
-
-    all_files = get_all_repository_files(
-        owner,
-        repo
-    )
+def get_readme(owner, repo):
+    all_files = get_all_repository_files(owner, repo)
 
     for file in all_files:
 
         if file["name"].lower() == "readme.md":
-
             return get_file_content(
                 owner,
                 repo,
@@ -147,16 +87,7 @@ def get_readme(
     return None
 
 
-# --------------------------------
-# Get Recent Commits
-# --------------------------------
-
-def get_recent_commits(
-    owner,
-    repo,
-    limit=10
-):
-
+def get_recent_commits(owner, repo, limit=10):
     commits = get_repository_commits(
         owner,
         repo,
@@ -207,14 +138,8 @@ def get_recent_commits(
     return recent_commits
 
 
-# --------------------------------
-# File Extension Detection
-# --------------------------------
-
 def get_file_extension(filename):
-
     if "." not in filename:
-
         return "Other"
 
     extension = filename.rsplit(
@@ -253,15 +178,7 @@ def get_file_extension(filename):
     )
 
 
-# --------------------------------
-# Get File Statistics
-# --------------------------------
-
-def get_file_statistics(
-    owner,
-    repo
-):
-
+def get_file_statistics(owner, repo):
     all_files = get_all_repository_files(
         owner,
         repo
@@ -276,7 +193,6 @@ def get_file_statistics(
         )
 
         if language not in statistics:
-
             statistics[language] = 0
 
         statistics[language] += 1
