@@ -830,34 +830,65 @@ if st.session_state.repository_analyzed:
         if st.session_state.scroll_to_code:
 
             components.html(
-                """
-                <script>
+        """
+        <script>
 
-                setTimeout(function() {
+        function scrollToSourceCode() {
 
-                    const element =
-                        window.parent.document
-                            .getElementById(
-                                "source-code-section"
-                            );
+            const parentDocument =
+                window.parent.document;
 
-                    if (element) {
+            const element =
+                parentDocument.getElementById(
+                    "source-code-section"
+                );
 
-                        element.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start"
-                        });
+            if (element) {
 
-                    }
+                element.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
 
-                }, 800);
+                return true;
+            }
 
-                </script>
-                """,
-                height=1
-            )
+            return false;
+        }
+
+
+        let attempts = 0;
+
+        const scrollInterval = setInterval(
+            function() {
+
+                attempts++;
+
+                const success =
+                    scrollToSourceCode();
+
+                if (
+                    success ||
+                    attempts >= 20
+                ) {
+
+                    clearInterval(
+                        scrollInterval
+                    );
+
+                }
+
+            },
+            200
+        );
+
+        </script>
+        """,
+        height=1
+    )
 
             st.session_state.scroll_to_code = False
+            
 
 
         # --------------------------------
