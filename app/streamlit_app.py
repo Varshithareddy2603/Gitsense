@@ -352,7 +352,71 @@ if st.session_state.repository_analyzed:
                 f"[🔗 Open Repository on GitHub]"
                 f"({summary['html_url']})"
             )
+    
+        # --------------------------------
+    # Repository Overview
+    # --------------------------------
 
+    st.subheader(
+        "📊 Repository Overview"
+    )
+
+    overview_statistics = (
+        st.session_state.file_statistics
+    )
+
+    if overview_statistics:
+
+        total_files = sum(
+            overview_statistics.values()
+        )
+
+        total_file_types = len(
+            overview_statistics
+        )
+
+        most_common_type = max(
+            overview_statistics,
+            key=overview_statistics.get
+        )
+
+        most_common_count = (
+            overview_statistics[
+                most_common_type
+            ]
+        )
+
+        overview_col1, overview_col2, overview_col3 = (
+            st.columns(3)
+        )
+
+        with overview_col1:
+
+            st.metric(
+                "📁 Total Files",
+                total_files
+            )
+
+        with overview_col2:
+
+            st.metric(
+                "🔤 File Types",
+                total_file_types
+            )
+
+        with overview_col3:
+
+            st.metric(
+                "🏆 Most Common Type",
+                most_common_type,
+                f"{most_common_count} files"
+            )
+
+    else:
+
+        st.info(
+            "Repository overview data is not available."
+        )
         # --------------------------------
     # Repository Health Dashboard
     # --------------------------------
