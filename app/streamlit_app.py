@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -13,9 +12,9 @@ from app.repository_service import (
 )
 
 
-# --------------------------------
+# ============================================================
 # Get Language From File
-# --------------------------------
+# ============================================================
 
 def get_language_from_file(filename):
 
@@ -58,9 +57,44 @@ def get_language_from_file(filename):
     )
 
 
-# --------------------------------
+# ============================================================
+# Search Mode Change Handler
+# ============================================================
+
+def switch_search_mode():
+
+    mode = st.session_state.repository_search_mode
+
+    if mode == "🔎 Code Search":
+
+        # Clear File Explorer search
+        st.session_state.repository_file_search = ""
+
+        # Clear selected file
+        st.session_state.selected_file = None
+
+        # Clear displayed source code
+        st.session_state.source_code = None
+
+        # Stop automatic scrolling
+        st.session_state.scroll_to_code = False
+
+    else:
+
+        # Clear Code Search query
+        st.session_state.code_search_query = ""
+
+        # Also make sure old source code is cleared
+        st.session_state.selected_file = None
+
+        st.session_state.source_code = None
+
+        st.session_state.scroll_to_code = False
+
+
+# ============================================================
 # Session State
-# --------------------------------
+# ============================================================
 
 if "repository_analyzed" not in st.session_state:
     st.session_state.repository_analyzed = False
@@ -95,10 +129,25 @@ if "show_all_commits" not in st.session_state:
 if "file_statistics" not in st.session_state:
     st.session_state.file_statistics = {}
 
+# File search state
+if "repository_file_search" not in st.session_state:
+    st.session_state.repository_file_search = ""
 
-# --------------------------------
+# Code search state
+if "code_search_query" not in st.session_state:
+    st.session_state.code_search_query = ""
+
+# Search mode
+if "search_mode" not in st.session_state:
+    st.session_state.search_mode = "file"
+
+if "repository_search_mode" not in st.session_state:
+    st.session_state.repository_search_mode = "📂 File Explorer"
+
+
+# ============================================================
 # Page Configuration
-# --------------------------------
+# ============================================================
 
 st.set_page_config(
     page_title="GitSense",
@@ -107,9 +156,9 @@ st.set_page_config(
 )
 
 
-# --------------------------------
+# ============================================================
 # Title
-# --------------------------------
+# ============================================================
 
 st.title("📊 GitSense")
 
@@ -120,9 +169,9 @@ st.write(
 )
 
 
-# --------------------------------
+# ============================================================
 # Repository Input
-# --------------------------------
+# ============================================================
 
 col1, col2 = st.columns(2)
 
@@ -143,9 +192,9 @@ with col2:
     )
 
 
-# --------------------------------
+# ============================================================
 # Analyze Repository
-# --------------------------------
+# ============================================================
 
 if st.button(
     "🔍 Analyze Repository",
@@ -203,15 +252,26 @@ if st.button(
                     file_statistics
                 )
 
-                # Reset commit view when analyzing
-                # a new repository
+                # Reset commits
                 st.session_state.show_all_commits = False
 
+                # Reset source code
                 st.session_state.selected_file = None
 
                 st.session_state.source_code = None
 
                 st.session_state.scroll_to_code = False
+
+                # Reset searches
+                st.session_state.repository_file_search = ""
+
+                st.session_state.code_search_query = ""
+
+                st.session_state.search_mode = "file"
+
+                st.session_state.repository_search_mode = (
+                    "📂 File Explorer"
+                )
 
                 st.success(
                     "Repository analyzed successfully!"
@@ -224,9 +284,9 @@ if st.button(
                 )
 
 
-# --------------------------------
+# ============================================================
 # Display Repository
-# --------------------------------
+# ============================================================
 
 if st.session_state.repository_analyzed:
 
@@ -237,9 +297,9 @@ if st.session_state.repository_analyzed:
     repository = st.session_state.repository
 
 
-    # --------------------------------
+    # ========================================================
     # Repository Header
-    # --------------------------------
+    # ========================================================
 
     st.header(
         f"📦 {summary['name']}"
@@ -258,9 +318,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Main Statistics
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📈 Repository Statistics"
@@ -297,9 +357,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Repository Information
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "ℹ️ Repository Information"
@@ -352,10 +412,11 @@ if st.session_state.repository_analyzed:
                 f"[🔗 Open Repository on GitHub]"
                 f"({summary['html_url']})"
             )
-    
-        # --------------------------------
+
+
+    # ========================================================
     # Repository Overview
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📊 Repository Overview"
@@ -417,38 +478,62 @@ if st.session_state.repository_analyzed:
         st.info(
             "Repository overview data is not available."
         )
-        # --------------------------------
+
+
+    # ========================================================
     # Repository Health Dashboard
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "🩺 Repository Health Dashboard"
     )
 
-    health_col1, health_col2, health_col3 = st.columns(3)
+    health_col1, health_col2, health_col3 = (
+        st.columns(3)
+    )
 
     with health_col1:
 
         if summary["description"]:
-            st.success("✅ Description available")
+
+            st.success(
+                "✅ Description available"
+            )
+
         else:
-            st.warning("⚠️ No description")
+
+            st.warning(
+                "⚠️ No description"
+            )
 
         if st.session_state.readme:
-            st.success("✅ README available")
+
+            st.success(
+                "✅ README available"
+            )
+
         else:
-            st.warning("⚠️ README missing")
+
+            st.warning(
+                "⚠️ README missing"
+            )
 
     with health_col2:
 
         if summary["language"]:
+
             st.success(
                 f"✅ Language: {summary['language']}"
             )
+
         else:
-            st.warning("⚠️ Language not specified")
+
+            st.warning(
+                "⚠️ Language not specified"
+            )
 
         if summary["default_branch"]:
+
             st.success(
                 f"🌿 Branch: {summary['default_branch']}"
             )
@@ -456,21 +541,35 @@ if st.session_state.repository_analyzed:
     with health_col3:
 
         if summary["open_issues"] == 0:
-            st.success("✅ No open issues")
+
+            st.success(
+                "✅ No open issues"
+            )
+
         else:
+
             st.warning(
                 f"⚠️ {summary['open_issues']} open issues"
             )
 
         if st.session_state.commits:
-            st.success("✅ Commit history available")
+
+            st.success(
+                "✅ Commit history available"
+            )
+
         else:
-            st.warning("⚠️ No commits found")
+
+            st.warning(
+                "⚠️ No commits found"
+            )
 
     st.divider()
-    # --------------------------------
+
+
+    # ========================================================
     # File Statistics
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📊 File Statistics"
@@ -556,9 +655,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # README
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📖 README"
@@ -579,9 +678,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Commits
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "🕐 Commits"
@@ -590,10 +689,6 @@ if st.session_state.repository_analyzed:
     commits = st.session_state.commits
 
     if commits:
-
-        # --------------------------------
-        # Latest Commit
-        # --------------------------------
 
         if not st.session_state.show_all_commits:
 
@@ -632,11 +727,6 @@ if st.session_state.repository_analyzed:
                 st.session_state.show_all_commits = True
 
                 st.rerun()
-
-
-        # --------------------------------
-        # All Commits
-        # --------------------------------
 
         else:
 
@@ -689,180 +779,373 @@ if st.session_state.repository_analyzed:
         )
 
 
-        # --------------------------------
-    # Repository File Explorer
-    # --------------------------------
+    # ========================================================
+    # Repository Search
+    #
+    # IMPORTANT:
+    # There is ONLY ONE search system below.
+    # ========================================================
 
     st.subheader(
-        "📂 Repository File Explorer"
+        "🔎 Repository Search"
     )
 
-    try:
+    st.write(
+        "Choose a search mode:"
+    )
 
-        all_files = get_all_repository_files(
-            username,
-            repository
+
+    # ========================================================
+    # Search Mode Selection
+    # ========================================================
+
+    selected_mode = st.radio(
+        "Search mode",
+        [
+            "📂 File Explorer",
+            "🔎 Code Search"
+        ],
+        horizontal=True,
+        key="repository_search_mode",
+        on_change=switch_search_mode
+    )
+
+
+    # ========================================================
+    # FILE EXPLORER MODE
+    # ========================================================
+
+    if selected_mode == "📂 File Explorer":
+
+        st.subheader(
+            "📂 Repository File Explorer"
         )
 
-        if all_files:
+        try:
 
-            # --------------------------------
-            # Search and Filter
-            # --------------------------------
-
-            search_col, filter_col = st.columns(2)
-
-            with search_col:
-
-                search_text = st.text_input(
-                    "🔎 Search files",
-                    placeholder=(
-                        "Example: streamlit_app.py"
-                    ),
-                    key="repository_file_search"
-                )
-
-            with filter_col:
-
-                file_types = sorted(
-                    set(
-                        get_language_from_file(
-                            file["path"]
-                        )
-                        for file in all_files
-                    )
-                )
-
-                selected_type = st.selectbox(
-                    "🔤 Filter by file type",
-                    ["All"] + file_types,
-                    key="repository_file_type"
-                )
-
-
-            # --------------------------------
-            # Apply Filters
-            # --------------------------------
-
-            filtered_files = all_files
-
-            if search_text:
-
-                filtered_files = [
-
-                    file
-
-                    for file in filtered_files
-
-                    if search_text.lower()
-                    in file["path"].lower()
-
-                ]
-
-
-            if selected_type != "All":
-
-                filtered_files = [
-
-                    file
-
-                    for file in filtered_files
-
-                    if get_language_from_file(
-                        file["path"]
-                    ) == selected_type
-
-                ]
-
-
-            # --------------------------------
-            # File Count
-            # --------------------------------
-
-            st.write(
-                f"Showing "
-                f"**{len(filtered_files)}** "
-                f"of "
-                f"**{len(all_files)}** files"
+            all_files = get_all_repository_files(
+                username,
+                repository
             )
 
+            if all_files:
 
-            # --------------------------------
-            # No Results
-            # --------------------------------
+                # ------------------------------------------------
+                # File Search Box
+                # ------------------------------------------------
 
-            if not filtered_files:
+                search_col, filter_col = st.columns(2)
 
-                st.info(
-                    "No files match your search/filter."
-                )
+                with search_col:
 
-
-            # --------------------------------
-            # File List
-            # --------------------------------
-
-            for file in filtered_files:
-
-                file_path = file["path"]
-
-                file_language = (
-                    get_language_from_file(
-                        file_path
+                    search_text = st.text_input(
+                        "🔎 Search files",
+                        placeholder=(
+                            "Example: github_api.py"
+                        ),
+                        key="repository_file_search"
                     )
+
+                # ------------------------------------------------
+                # File Type Filter
+                # ------------------------------------------------
+
+                with filter_col:
+
+                    file_types = sorted(
+                        set(
+                            get_language_from_file(
+                                file["path"]
+                            )
+                            for file in all_files
+                        )
+                    )
+
+                    selected_type = st.selectbox(
+                        "🔤 Filter by file type",
+                        ["All"] + file_types,
+                        key="repository_file_type"
+                    )
+
+                # ------------------------------------------------
+                # Filter Files
+                # ------------------------------------------------
+
+                filtered_files = all_files
+
+                if search_text:
+
+                    filtered_files = [
+
+                        file
+
+                        for file in filtered_files
+
+                        if search_text.lower()
+                        in file["path"].lower()
+
+                    ]
+
+                if selected_type != "All":
+
+                    filtered_files = [
+
+                        file
+
+                        for file in filtered_files
+
+                        if get_language_from_file(
+                            file["path"]
+                        ) == selected_type
+
+                    ]
+
+                # ------------------------------------------------
+                # Results
+                # ------------------------------------------------
+
+                st.write(
+                    f"Showing "
+                    f"**{len(filtered_files)}** "
+                    f"of "
+                    f"**{len(all_files)} files**"
                 )
 
-                if st.button(
-                    f"📄 {file_path}  •  {file_language}",
-                    key=f"file_{file_path}"
-                ):
+                if not filtered_files:
 
-                    try:
+                    st.info(
+                        "No files match your search/filter."
+                    )
 
-                        source_code = (
-                            get_source_code(
+                # ------------------------------------------------
+                # File Buttons
+                # ------------------------------------------------
+
+                for file in filtered_files:
+
+                    file_path = file["path"]
+
+                    file_language = (
+                        get_language_from_file(
+                            file_path
+                        )
+                    )
+
+                    if st.button(
+                        f"📄 {file_path}  •  {file_language}",
+                        key=f"file_{file_path}"
+                    ):
+
+                        try:
+
+                            source_code = get_source_code(
                                 username,
                                 repository,
                                 file_path
                             )
+
+                            st.session_state.selected_file = (
+                                file_path
+                            )
+
+                            st.session_state.source_code = (
+                                source_code
+                            )
+
+                            st.session_state.scroll_to_code = (
+                                True
+                            )
+
+                            st.rerun()
+
+                        except Exception as e:
+
+                            st.error(
+                                f"Unable to load file: {e}"
+                            )
+
+            else:
+
+                st.info(
+                    "No files found."
+                )
+
+        except Exception as e:
+
+            st.error(
+                f"Unable to load repository files: {e}"
+            )
+
+
+    # ========================================================
+    # CODE SEARCH MODE
+    # ========================================================
+
+    else:
+
+        st.subheader(
+            "🔎 Repository Code Search"
+        )
+
+        # ----------------------------------------------------
+        # Code Search Box
+        # ----------------------------------------------------
+
+        search_query = st.text_input(
+            "Search inside repository source code",
+            placeholder=(
+                "Example: def, import, "
+                "st.session_state, streamlit"
+            ),
+            key="code_search_query"
+        )
+
+        # ----------------------------------------------------
+        # Search Repository Code
+        # ----------------------------------------------------
+
+        if search_query:
+
+            with st.spinner(
+                "Searching repository code..."
+            ):
+
+                search_results = []
+
+                all_code_files = (
+                    get_all_repository_files(
+                        st.session_state.username,
+                        st.session_state.repository
+                    )
+                )
+
+                code_extensions = (
+                    ".py",
+                    ".js",
+                    ".jsx",
+                    ".ts",
+                    ".tsx",
+                    ".java",
+                    ".c",
+                    ".cpp",
+                    ".h",
+                    ".hpp",
+                    ".cs",
+                    ".html",
+                    ".css",
+                    ".sql",
+                    ".sh",
+                    ".bat"
+                )
+
+                # ------------------------------------------------
+                # Search Every Code File
+                # ------------------------------------------------
+
+                for file_item in all_code_files:
+
+                    if isinstance(
+                        file_item,
+                        dict
+                    ):
+
+                        file_path = (
+                            file_item.get("path")
+                            or file_item.get("name")
+                            or ""
                         )
 
-                        st.session_state.selected_file = (
+                    else:
+
+                        file_path = str(
+                            file_item
+                        )
+
+                    if not file_path:
+
+                        continue
+
+                    if not file_path.lower().endswith(
+                        code_extensions
+                    ):
+
+                        continue
+
+                    try:
+
+                        source_code = get_source_code(
+                            st.session_state.username,
+                            st.session_state.repository,
                             file_path
                         )
 
-                        st.session_state.source_code = (
-                            source_code
+                        if not source_code:
+
+                            continue
+
+                        lines = source_code.splitlines()
+
+                        for line_number, line in enumerate(
+                            lines,
+                            start=1
+                        ):
+
+                            if (
+                                search_query.lower()
+                                in line.lower()
+                            ):
+
+                                search_results.append(
+                                    {
+                                        "file": file_path,
+                                        "line": line_number,
+                                        "code": line.strip()
+                                    }
+                                )
+
+                    except Exception:
+
+                        continue
+
+            # ------------------------------------------------
+            # Display Results
+            # ------------------------------------------------
+
+            if search_results:
+
+                st.success(
+                    f"Found "
+                    f"{len(search_results)} "
+                    f"matching line(s)."
+                )
+
+                for result in search_results:
+
+                    st.markdown(
+                        f"**📄 {result['file']} "
+                        f"— Line {result['line']}**"
+                    )
+
+                    st.code(
+                        result["code"],
+                        language=get_language_from_file(
+                            result["file"]
                         )
+                    )
 
-                        st.session_state.scroll_to_code = (
-                            True
-                        )
+                    st.markdown("---")
 
-                        st.rerun()
+            else:
 
-                    except Exception as e:
-
-                        st.error(
-                            f"Unable to load file: {e}"
-                        )
+                st.warning(
+                    f'No matches found for '
+                    f'"{search_query}".'
+                )
 
 
-        else:
-
-            st.info(
-                "No files found."
-            )
-
-    except Exception as e:
-
-        st.error(
-            f"Unable to load repository files: {e}"
-        )
-
-    # --------------------------------
+    # ========================================================
     # Source Code Viewer
-    # --------------------------------
+    # ========================================================
 
     if (
         st.session_state.selected_file
@@ -871,9 +1154,9 @@ if st.session_state.repository_analyzed:
 
         st.divider()
 
-        # --------------------------------
+        # ----------------------------------------------------
         # Source Code Anchor
-        # --------------------------------
+        # ----------------------------------------------------
 
         st.markdown(
             """
@@ -886,100 +1169,94 @@ if st.session_state.repository_analyzed:
             "💻 Source Code"
         )
 
-
-        # --------------------------------
+        # ----------------------------------------------------
         # Automatic Scroll
-        # --------------------------------
+        # ----------------------------------------------------
 
         if st.session_state.scroll_to_code:
 
             components.html(
-        """
-        <script>
+                """
+                <script>
 
-        function scrollToSourceCode() {
+                function scrollToSourceCode() {
 
-            const parentDocument =
-                window.parent.document;
+                    const parentDocument =
+                        window.parent.document;
 
-            const element =
-                parentDocument.getElementById(
-                    "source-code-section"
-                );
+                    const element =
+                        parentDocument.getElementById(
+                            "source-code-section"
+                        );
 
-            if (element) {
+                    if (element) {
 
-                element.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
+                        element.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start"
+                        });
 
-                return true;
-            }
+                        return true;
+                    }
 
-            return false;
-        }
-
-
-        let attempts = 0;
-
-        const scrollInterval = setInterval(
-            function() {
-
-                attempts++;
-
-                const success =
-                    scrollToSourceCode();
-
-                if (
-                    success ||
-                    attempts >= 20
-                ) {
-
-                    clearInterval(
-                        scrollInterval
-                    );
-
+                    return false;
                 }
 
-            },
-            200
-        );
 
-        </script>
-        """,
-        height=1
-    )
+                let attempts = 0;
+
+                const scrollInterval = setInterval(
+                    function() {
+
+                        attempts++;
+
+                        const success =
+                            scrollToSourceCode();
+
+                        if (
+                            success ||
+                            attempts >= 20
+                        ) {
+
+                            clearInterval(
+                                scrollInterval
+                            );
+
+                        }
+
+                    },
+                    200
+                );
+
+                </script>
+                """,
+                height=1
+            )
 
             st.session_state.scroll_to_code = False
-            
 
-
-        # --------------------------------
+        # ----------------------------------------------------
         # Selected File
-        # --------------------------------
+        # ----------------------------------------------------
 
         st.write(
             f"File: "
             f"**{st.session_state.selected_file}**"
         )
 
-
-        # --------------------------------
-        # Detect Programming Language
-        # --------------------------------
+        # ----------------------------------------------------
+        # Programming Language
+        # ----------------------------------------------------
 
         language = get_language_from_file(
             st.session_state.selected_file
         )
 
-
-        # --------------------------------
+        # ----------------------------------------------------
         # Display Source Code
-        # --------------------------------
+        # ----------------------------------------------------
 
         st.code(
             st.session_state.source_code,
             language=language
         )
-
