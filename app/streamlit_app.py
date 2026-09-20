@@ -249,7 +249,7 @@ with col1:
     username = st.text_input(
         "GitHub Username",
         value=st.session_state.username,
-        placeholder="Example: Varshithareddy2603"
+        placeholder="Enter GitHub username"
     )
 
 with col2:
