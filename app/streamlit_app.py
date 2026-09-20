@@ -1,7 +1,6 @@
 import os
 import sys
 import html
-
 PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 )
@@ -11,7 +10,6 @@ if PROJECT_ROOT not in sys.path:
 
 import streamlit as st
 import streamlit.components.v1 as components
-
 from app.repository_service import (
     get_repository_summary,
     get_repository_files,
@@ -22,7 +20,7 @@ from app.repository_service import (
     get_file_statistics
 )
 
-
+from app.code_intelligence import render_code_intelligence
 # ============================================================
 # Get Language From File
 # ============================================================
@@ -1756,3 +1754,10 @@ if st.session_state.repository_analyzed:
             height=680,
             scrolling=False
         )
+# ============================================================
+# CODE INTELLIGENCE
+# ============================================================
+
+st.divider()
+
+render_code_intelligence()
