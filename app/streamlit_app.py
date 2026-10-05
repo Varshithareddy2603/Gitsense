@@ -257,7 +257,7 @@ with col2:
     repository = st.text_input(
         "Repository Name",
         value=st.session_state.repository,
-        placeholder="Example: GitSense"
+        placeholder="Enter repository name"
     )
 
 
@@ -1760,4 +1760,7 @@ if st.session_state.repository_analyzed:
 
 st.divider()
 
-render_code_intelligence()
+render_code_intelligence(
+    st.session_state.username,
+    st.session_state.repository
+)
