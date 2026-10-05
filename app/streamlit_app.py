@@ -1,7 +1,15 @@
+import os
+import sys
+import html
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import streamlit as st
 import streamlit.components.v1 as components
-
 from app.repository_service import (
     get_repository_summary,
     get_repository_files,
@@ -12,10 +20,10 @@ from app.repository_service import (
     get_file_statistics
 )
 
-
-# --------------------------------
+from app.code_intelligence import render_code_intelligence
+# ============================================================
 # Get Language From File
-# --------------------------------
+# ============================================================
 
 def get_language_from_file(filename):
 
@@ -58,9 +66,88 @@ def get_language_from_file(filename):
     )
 
 
-# --------------------------------
+# ============================================================
+# Open Source File
+# ============================================================
+
+def open_source_file(file_path, line_number=None):
+
+    try:
+
+        source_code = get_source_code(
+            st.session_state.username,
+            st.session_state.repository,
+            file_path
+        )
+
+        st.session_state.selected_file = file_path
+
+        st.session_state.source_code = source_code
+
+        st.session_state.selected_line = line_number
+
+        # Create a NEW scroll event every time Open is clicked.
+        st.session_state.scroll_id += 1
+
+        st.session_state.scroll_to_code = True
+
+        st.rerun()
+
+    except Exception as e:
+
+        st.error(
+            f"Unable to load file: {e}"
+        )
+
+
+# ============================================================
+# Search Mode Change Handler
+# ============================================================
+
+def switch_search_mode():
+
+    mode = st.session_state.repository_search_mode
+
+    if mode == "🔎 Code Search":
+
+        st.session_state.repository_file_search = ""
+
+        st.session_state.selected_file = None
+
+        st.session_state.source_code = None
+
+        st.session_state.selected_line = None
+
+        st.session_state.scroll_to_code = False
+
+        st.session_state.code_search_results = []
+
+        st.session_state.code_search_match_index = 0
+
+        st.session_state.last_code_search_query = ""
+
+    else:
+
+        st.session_state.code_search_query = ""
+
+        st.session_state.selected_file = None
+
+        st.session_state.source_code = None
+
+        st.session_state.selected_line = None
+
+        st.session_state.scroll_to_code = False
+
+        st.session_state.code_search_results = []
+
+        st.session_state.code_search_match_index = 0
+
+        st.session_state.last_code_search_query = ""
+
+
+# ============================================================
 # Session State
-# --------------------------------
+# ============================================================
 
 if "repository_analyzed" not in st.session_state:
     st.session_state.repository_analyzed = False
@@ -83,6 +170,12 @@ if "source_code" not in st.session_state:
 if "scroll_to_code" not in st.session_state:
     st.session_state.scroll_to_code = False
 
+if "selected_line" not in st.session_state:
+    st.session_state.selected_line = None
+
+if "scroll_id" not in st.session_state:
+    st.session_state.scroll_id = 0
+
 if "readme" not in st.session_state:
     st.session_state.readme = None
 
@@ -95,10 +188,35 @@ if "show_all_commits" not in st.session_state:
 if "file_statistics" not in st.session_state:
     st.session_state.file_statistics = {}
 
+if "repository_file_search" not in st.session_state:
+    st.session_state.repository_file_search = ""
 
-# --------------------------------
+if "code_search_query" not in st.session_state:
+    st.session_state.code_search_query = ""
+
+if "search_mode" not in st.session_state:
+    st.session_state.search_mode = "file"
+
+if "repository_search_mode" not in st.session_state:
+    st.session_state.repository_search_mode = "📂 File Explorer"
+
+# ============================================================
+# NEW CODE SEARCH NAVIGATION STATE
+# ============================================================
+
+if "code_search_results" not in st.session_state:
+    st.session_state.code_search_results = []
+
+if "code_search_match_index" not in st.session_state:
+    st.session_state.code_search_match_index = 0
+
+if "last_code_search_query" not in st.session_state:
+    st.session_state.last_code_search_query = ""
+
+
+# ============================================================
 # Page Configuration
-# --------------------------------
+# ============================================================
 
 st.set_page_config(
     page_title="GitSense",
@@ -107,9 +225,9 @@ st.set_page_config(
 )
 
 
-# --------------------------------
+# ============================================================
 # Title
-# --------------------------------
+# ============================================================
 
 st.title("📊 GitSense")
 
@@ -120,9 +238,9 @@ st.write(
 )
 
 
-# --------------------------------
+# ============================================================
 # Repository Input
-# --------------------------------
+# ============================================================
 
 col1, col2 = st.columns(2)
 
@@ -131,7 +249,7 @@ with col1:
     username = st.text_input(
         "GitHub Username",
         value=st.session_state.username,
-        placeholder="Example: Varshithareddy2603"
+        placeholder="Enter GitHub username"
     )
 
 with col2:
@@ -139,13 +257,13 @@ with col2:
     repository = st.text_input(
         "Repository Name",
         value=st.session_state.repository,
-        placeholder="Example: GitSense"
+        placeholder="Enter repository name"
     )
 
 
-# --------------------------------
+# ============================================================
 # Analyze Repository
-# --------------------------------
+# ============================================================
 
 if st.button(
     "🔍 Analyze Repository",
@@ -197,14 +315,12 @@ if st.button(
 
                 st.session_state.readme = readme
 
-                st.session_state.commits = commits
+                st.session_state.commits = commits or []
 
                 st.session_state.file_statistics = (
-                    file_statistics
+                    file_statistics or {}
                 )
 
-                # Reset commit view when analyzing
-                # a new repository
                 st.session_state.show_all_commits = False
 
                 st.session_state.selected_file = None
@@ -212,6 +328,27 @@ if st.button(
                 st.session_state.source_code = None
 
                 st.session_state.scroll_to_code = False
+
+                st.session_state.selected_line = None
+
+                st.session_state.scroll_id += 1
+
+                st.session_state.repository_file_search = ""
+
+                st.session_state.code_search_query = ""
+
+                st.session_state.search_mode = "file"
+
+                st.session_state.repository_search_mode = (
+                    "📂 File Explorer"
+                )
+
+                # Reset code search navigation
+                st.session_state.code_search_results = []
+
+                st.session_state.code_search_match_index = 0
+
+                st.session_state.last_code_search_query = ""
 
                 st.success(
                     "Repository analyzed successfully!"
@@ -224,9 +361,9 @@ if st.button(
                 )
 
 
-# --------------------------------
+# ============================================================
 # Display Repository
-# --------------------------------
+# ============================================================
 
 if st.session_state.repository_analyzed:
 
@@ -237,9 +374,9 @@ if st.session_state.repository_analyzed:
     repository = st.session_state.repository
 
 
-    # --------------------------------
+    # ========================================================
     # Repository Header
-    # --------------------------------
+    # ========================================================
 
     st.header(
         f"📦 {summary['name']}"
@@ -258,9 +395,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Main Statistics
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📈 Repository Statistics"
@@ -297,9 +434,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Repository Information
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "ℹ️ Repository Information"
@@ -354,9 +491,162 @@ if st.session_state.repository_analyzed:
             )
 
 
-    # --------------------------------
+    # ========================================================
+    # Repository Overview
+    # ========================================================
+
+    st.subheader(
+        "📊 Repository Overview"
+    )
+
+    overview_statistics = (
+        st.session_state.file_statistics
+    )
+
+    if overview_statistics:
+
+        total_files = sum(
+            overview_statistics.values()
+        )
+
+        total_file_types = len(
+            overview_statistics
+        )
+
+        most_common_type = max(
+            overview_statistics,
+            key=overview_statistics.get
+        )
+
+        most_common_count = (
+            overview_statistics[
+                most_common_type
+            ]
+        )
+
+        overview_col1, overview_col2, overview_col3 = (
+            st.columns(3)
+        )
+
+        with overview_col1:
+
+            st.metric(
+                "📁 Total Files",
+                total_files
+            )
+
+        with overview_col2:
+
+            st.metric(
+                "🔤 File Types",
+                total_file_types
+            )
+
+        with overview_col3:
+
+            st.metric(
+                "🏆 Most Common Type",
+                most_common_type,
+                f"{most_common_count} files"
+            )
+
+    else:
+
+        st.info(
+            "Repository overview data is not available."
+        )
+
+
+    # ========================================================
+    # Repository Health Dashboard
+    # ========================================================
+
+    st.subheader(
+        "🩺 Repository Health Dashboard"
+    )
+
+    health_col1, health_col2, health_col3 = (
+        st.columns(3)
+    )
+
+    with health_col1:
+
+        if summary["description"]:
+
+            st.success(
+                "✅ Description available"
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ No description"
+            )
+
+        if st.session_state.readme:
+
+            st.success(
+                "✅ README available"
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ README missing"
+            )
+
+    with health_col2:
+
+        if summary["language"]:
+
+            st.success(
+                f"✅ Language: {summary['language']}"
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ Language not specified"
+            )
+
+        if summary["default_branch"]:
+
+            st.success(
+                f"🌿 Branch: {summary['default_branch']}"
+            )
+
+    with health_col3:
+
+        if summary["open_issues"] == 0:
+
+            st.success(
+                "✅ No open issues"
+            )
+
+        else:
+
+            st.warning(
+                f"⚠️ {summary['open_issues']} open issues"
+            )
+
+        if st.session_state.commits:
+
+            st.success(
+                "✅ Commit history available"
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ No commits found"
+            )
+
+    st.divider()
+
+
+    # ========================================================
     # File Statistics
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📊 File Statistics"
@@ -442,9 +732,9 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # README
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
         "📖 README"
@@ -465,43 +755,44 @@ if st.session_state.repository_analyzed:
         )
 
 
-    # --------------------------------
+    # ========================================================
     # Commits
-    # --------------------------------
+    # ========================================================
 
     st.subheader(
-        "🕐 Commits"
+        "🕐 Recent Commits"
     )
 
-    commits = st.session_state.commits
+    commits = st.session_state.get(
+        "commits",
+        []
+    )
 
     if commits:
-
-        # --------------------------------
-        # Latest Commit
-        # --------------------------------
 
         if not st.session_state.show_all_commits:
 
             latest_commit = commits[0]
 
             st.markdown(
-                f"### `{latest_commit['sha']}`"
+                f"### `{latest_commit.get('sha', 'Unknown')}`"
             )
 
             st.write(
-                f"**{latest_commit['message']}**"
+                f"**{latest_commit.get('message', 'No commit message')}**"
             )
 
             st.write(
-                f"Author: {latest_commit['author']}"
+                f"Author: "
+                f"{latest_commit.get('author', 'Unknown')}"
             )
 
             st.write(
-                f"Date: {latest_commit['date']}"
+                f"Date: "
+                f"{latest_commit.get('date', 'Unknown')}"
             )
 
-            if latest_commit["url"]:
+            if latest_commit.get("url"):
 
                 st.markdown(
                     f"[View Commit on GitHub]"
@@ -518,11 +809,6 @@ if st.session_state.repository_analyzed:
                 st.session_state.show_all_commits = True
 
                 st.rerun()
-
-
-        # --------------------------------
-        # All Commits
-        # --------------------------------
 
         else:
 
@@ -544,22 +830,24 @@ if st.session_state.repository_analyzed:
             for commit in commits:
 
                 st.markdown(
-                    f"### `{commit['sha']}`"
+                    f"### `{commit.get('sha', 'Unknown')}`"
                 )
 
                 st.write(
-                    f"**{commit['message']}**"
+                    f"**{commit.get('message', 'No commit message')}**"
                 )
 
                 st.write(
-                    f"Author: {commit['author']}"
+                    f"Author: "
+                    f"{commit.get('author', 'Unknown')}"
                 )
 
                 st.write(
-                    f"Date: {commit['date']}"
+                    f"Date: "
+                    f"{commit.get('date', 'Unknown')}"
                 )
 
-                if commit["url"]:
+                if commit.get("url"):
 
                     st.markdown(
                         f"[View Commit on GitHub]"
@@ -571,128 +859,555 @@ if st.session_state.repository_analyzed:
     else:
 
         st.info(
-            "No commits found."
+            "No recent commits are available."
         )
 
 
-    # --------------------------------
-    # Repository Files
-    # --------------------------------
+    # ========================================================
+    # Repository Search
+    # ========================================================
 
     st.subheader(
-        "📂 Repository Files"
+        "🔎 Repository Search"
     )
 
-    try:
+    st.write(
+        "Choose a search mode:"
+    )
 
-        all_files = get_all_repository_files(
-            username,
-            repository
+
+    # ========================================================
+    # Search Mode Selection
+    # ========================================================
+
+    selected_mode = st.radio(
+        "Search mode",
+        [
+            "📂 File Explorer",
+            "🔎 Code Search"
+        ],
+        horizontal=True,
+        key="repository_search_mode",
+        on_change=switch_search_mode
+    )
+
+
+    # ========================================================
+    # FILE EXPLORER MODE
+    # ========================================================
+
+    if selected_mode == "📂 File Explorer":
+
+        st.subheader(
+            "📂 Repository File Explorer"
         )
 
-        if all_files:
+        try:
 
-            # --------------------------------
-            # Search Files
-            # --------------------------------
-
-            search_text = st.text_input(
-                "🔎 Search files",
-                placeholder=(
-                    "Example: streamlit_app.py"
-                )
+            all_files = get_all_repository_files(
+                username,
+                repository
             )
 
-            if search_text:
+            if all_files:
 
-                filtered_files = [
+                search_col, filter_col = st.columns(2)
 
-                    file
+                with search_col:
 
-                    for file in all_files
+                    search_text = st.text_input(
+                        "🔎 Search files",
+                        placeholder=(
+                            "Example: github_api.py"
+                        ),
+                        key="repository_file_search"
+                    )
 
-                    if search_text.lower()
-                    in file["path"].lower()
+                with filter_col:
 
-                ]
+                    file_types = sorted(
+                        set(
+                            get_language_from_file(
+                                file["path"]
+                            )
+                            for file in all_files
+                        )
+                    )
 
-            else:
+                    selected_type = st.selectbox(
+                        "🔤 Filter by file type",
+                        ["All"] + file_types,
+                        key="repository_file_type"
+                    )
 
                 filtered_files = all_files
 
+                if search_text:
 
-            # --------------------------------
-            # File Count
-            # --------------------------------
+                    filtered_files = [
 
-            st.write(
-                f"Showing "
-                f"{len(filtered_files)} "
-                f"of "
-                f"{len(all_files)} files"
-            )
+                        file
 
+                        for file in filtered_files
 
-            # --------------------------------
-            # File List
-            # --------------------------------
+                        if search_text.lower()
+                        in file["path"].lower()
 
-            for file in filtered_files:
+                    ]
 
-                file_path = file["path"]
+                if selected_type != "All":
 
-                if st.button(
-                    f"📄 {file_path}",
-                    key=f"file_{file_path}"
-                ):
+                    filtered_files = [
 
-                    try:
+                        file
 
-                        source_code = (
-                            get_source_code(
-                                username,
-                                repository,
-                                file_path
-                            )
+                        for file in filtered_files
+
+                        if get_language_from_file(
+                            file["path"]
+                        ) == selected_type
+
+                    ]
+
+                st.write(
+                    f"Showing "
+                    f"**{len(filtered_files)}** "
+                    f"of "
+                    f"**{len(all_files)} files**"
+                )
+
+                if not filtered_files:
+
+                    st.info(
+                        "No files match your search/filter."
+                    )
+
+                for file in filtered_files:
+
+                    file_path = file["path"]
+
+                    file_language = (
+                        get_language_from_file(
+                            file_path
                         )
+                    )
 
-                        st.session_state.selected_file = (
+                    if st.button(
+                        f"📄 {file_path}  •  {file_language}",
+                        key=f"file_{file_path}"
+                    ):
+
+                        open_source_file(
                             file_path
                         )
 
-                        st.session_state.source_code = (
-                            source_code
-                        )
+            else:
 
-                        st.session_state.scroll_to_code = (
-                            True
-                        )
+                st.info(
+                    "No files found."
+                )
 
-                        st.rerun()
+        except Exception as e:
 
-                    except Exception as e:
-
-                        st.error(
-                            f"Unable to load file: {e}"
-                        )
-
-
-        else:
-
-            st.info(
-                "No files found."
+            st.error(
+                f"Unable to load repository files: {e}"
             )
 
-    except Exception as e:
 
-        st.error(
-            f"Unable to load repository files: {e}"
+    # ========================================================
+    # CODE SEARCH MODE
+    # ========================================================
+
+    else:
+
+        st.subheader(
+            "🔎 Repository Code Search"
         )
 
+        search_query = st.text_input(
+            "Search inside repository source code",
+            placeholder=(
+                "Example: def, import, "
+                "st.session_state, streamlit"
+            ),
+            key="code_search_query"
+        )
 
-    # --------------------------------
+        # ----------------------------------------------------
+        # Detect New Search Query
+        # ----------------------------------------------------
+
+        if (
+            search_query
+            != st.session_state.last_code_search_query
+        ):
+
+            st.session_state.code_search_results = []
+
+            st.session_state.code_search_match_index = 0
+
+            st.session_state.last_code_search_query = (
+                search_query
+            )
+
+        # ----------------------------------------------------
+        # Perform Code Search
+        # ----------------------------------------------------
+
+        if search_query:
+
+            # Only perform the expensive GitHub search
+            # when results are not already stored for
+            # this exact query.
+            if not st.session_state.code_search_results:
+
+                with st.spinner(
+                    "Searching repository code..."
+                ):
+
+                    search_results = []
+
+                    all_code_files = (
+                        get_all_repository_files(
+                            st.session_state.username,
+                            st.session_state.repository
+                        )
+                    )
+
+                    code_extensions = (
+                        ".py",
+                        ".js",
+                        ".jsx",
+                        ".ts",
+                        ".tsx",
+                        ".java",
+                        ".c",
+                        ".cpp",
+                        ".h",
+                        ".hpp",
+                        ".cs",
+                        ".html",
+                        ".css",
+                        ".sql",
+                        ".sh",
+                        ".bat"
+                    )
+
+                    for file_item in all_code_files:
+
+                        if isinstance(
+                            file_item,
+                            dict
+                        ):
+
+                            file_path = (
+                                file_item.get("path")
+                                or file_item.get("name")
+                                or ""
+                            )
+
+                        else:
+
+                            file_path = str(
+                                file_item
+                            )
+
+                        if not file_path:
+                            continue
+
+                        if not file_path.lower().endswith(
+                            code_extensions
+                        ):
+                            continue
+
+                        try:
+
+                            source_code = get_source_code(
+                                st.session_state.username,
+                                st.session_state.repository,
+                                file_path
+                            )
+
+                            if not source_code:
+                                continue
+
+                            lines = source_code.splitlines()
+
+                            for line_number, line in enumerate(
+                                lines,
+                                start=1
+                            ):
+
+                                if (
+                                    search_query.lower()
+                                    in line.lower()
+                                ):
+
+                                    search_results.append(
+                                        {
+                                            "file": file_path,
+                                            "line": line_number,
+                                            "code": line.strip()
+                                        }
+                                    )
+
+                        except Exception:
+
+                            continue
+
+                    st.session_state.code_search_results = (
+                        search_results
+                    )
+
+                    st.session_state.code_search_match_index = 0
+
+            # ------------------------------------------------
+            # Display Results
+            # ------------------------------------------------
+
+            search_results = (
+                st.session_state.code_search_results
+            )
+
+            if search_results:
+
+                total_matches = len(
+                    search_results
+                )
+
+                # Make sure the index is always valid.
+                if (
+                    st.session_state.code_search_match_index
+                    < 0
+                ):
+
+                    st.session_state.code_search_match_index = (
+                        0
+                    )
+
+                if (
+                    st.session_state.code_search_match_index
+                    >= total_matches
+                ):
+
+                    st.session_state.code_search_match_index = (
+                        total_matches - 1
+                    )
+
+                current_match_index = (
+                    st.session_state.code_search_match_index
+                )
+
+                current_match = (
+                    search_results[
+                        current_match_index
+                    ]
+                )
+
+                # ------------------------------------------------
+                # Search Summary
+                # ------------------------------------------------
+
+                st.success(
+                    f"Found "
+                    f"{total_matches} "
+                    f"matching line(s)."
+                )
+
+                # ------------------------------------------------
+                # Navigation
+                # ------------------------------------------------
+
+                st.markdown(
+                    "### 🔎 Search Result Navigation"
+                )
+
+                nav_col1, nav_col2, nav_col3, nav_col4 = (
+                    st.columns(
+                        [1, 1, 2, 2]
+                    )
+                )
+
+                with nav_col1:
+
+                    previous_clicked = st.button(
+                        "⬆️ Previous",
+                        key="code_search_previous"
+                    )
+
+                with nav_col2:
+
+                    next_clicked = st.button(
+                        "⬇️ Next",
+                        key="code_search_next"
+                    )
+
+                with nav_col3:
+
+                    st.markdown(
+                        f"""
+                        <div style="
+                            padding-top: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                        ">
+                            Match
+                            {current_match_index + 1}
+                            of
+                            {total_matches}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with nav_col4:
+
+                    if st.button(
+                        "📂 Open Current Match",
+                        key="open_current_code_match"
+                    ):
+
+                        open_source_file(
+                            current_match["file"],
+                            current_match["line"]
+                        )
+
+                # ------------------------------------------------
+                # Handle Previous
+                # ------------------------------------------------
+
+                if previous_clicked:
+
+                    if current_match_index > 0:
+
+                        st.session_state.code_search_match_index = (
+                            current_match_index - 1
+                        )
+
+                    else:
+
+                        st.session_state.code_search_match_index = (
+                            total_matches - 1
+                        )
+
+                    st.rerun()
+
+                # ------------------------------------------------
+                # Handle Next
+                # ------------------------------------------------
+
+                if next_clicked:
+
+                    if current_match_index < (
+                        total_matches - 1
+                    ):
+
+                        st.session_state.code_search_match_index = (
+                            current_match_index + 1
+                        )
+
+                    else:
+
+                        st.session_state.code_search_match_index = (
+                            0
+                        )
+
+                    st.rerun()
+
+                st.divider()
+
+                # ------------------------------------------------
+                # Current Match Preview
+                # ------------------------------------------------
+
+                st.info(
+                    f"Current match: "
+                    f"**{current_match['file']}** "
+                    f"— Line "
+                    f"**{current_match['line']}**"
+                )
+
+                # ------------------------------------------------
+                # Display All Search Results
+                # ------------------------------------------------
+
+                for index, result in enumerate(
+                    search_results
+                ):
+
+                    result_col1, result_col2 = (
+                        st.columns([5, 1])
+                    )
+
+                    with result_col1:
+
+                        if index == current_match_index:
+
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    padding: 8px;
+                                    border-left: 4px solid #ffc107;
+                                    background: rgba(255,193,7,0.12);
+                                    border-radius: 4px;
+                                    margin-bottom: 8px;
+                                ">
+                                    <b>📍 Current Match</b>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        st.markdown(
+                            f"**📄 {result['file']} "
+                            f"— Line {result['line']}**"
+                        )
+
+                        st.code(
+                            result["code"],
+                            language=get_language_from_file(
+                                result["file"]
+                            )
+                        )
+
+                    with result_col2:
+
+                        st.write("")
+
+                        if st.button(
+                            "📂 Open",
+                            key=(
+                                f"open_search_result_"
+                                f"{index}_"
+                                f"{result['file']}_"
+                                f"{result['line']}"
+                            )
+                        ):
+
+                            # Keep navigation position
+                            # synchronized with the opened result.
+                            st.session_state.code_search_match_index = (
+                                index
+                            )
+
+                            open_source_file(
+                                result["file"],
+                                result["line"]
+                            )
+
+                    st.markdown("---")
+
+            else:
+
+                st.warning(
+                    f'No matches found for '
+                    f'"{search_query}".'
+                )
+
+
+    # ========================================================
     # Source Code Viewer
-    # --------------------------------
+    # ========================================================
 
     if (
         st.session_state.selected_file
@@ -701,13 +1416,19 @@ if st.session_state.repository_analyzed:
 
         st.divider()
 
-        # --------------------------------
-        # Source Code Anchor
-        # --------------------------------
+        # ----------------------------------------------------
+        # Unique Source Code Anchor
+        # ----------------------------------------------------
 
         st.markdown(
-            """
-            <div id="source-code-section"></div>
+            f"""
+            <div
+                id="source-code-section-{st.session_state.scroll_id}"
+                style="
+                    scroll-margin-top: 30px;
+                    height: 1px;
+                ">
+            </div>
             """,
             unsafe_allow_html=True
         )
@@ -716,36 +1437,80 @@ if st.session_state.repository_analyzed:
             "💻 Source Code"
         )
 
+        # ----------------------------------------------------
+        # Selected Search Line
+        # ----------------------------------------------------
 
-        # --------------------------------
-        # Automatic Scroll
-        # --------------------------------
+        if st.session_state.selected_line:
+
+            st.info(
+                f"🔎 Search match found at "
+                f"**line {st.session_state.selected_line}**"
+            )
+
+        # ----------------------------------------------------
+        # Automatic Page Scroll
+        # ----------------------------------------------------
 
         if st.session_state.scroll_to_code:
 
+            current_scroll_id = (
+                st.session_state.scroll_id
+            )
+
             components.html(
-                """
+                f"""
                 <script>
+                (function() {{
 
-                setTimeout(function() {
+                    const scrollId =
+                        {current_scroll_id};
 
-                    const element =
-                        window.parent.document
-                            .getElementById(
-                                "source-code-section"
-                            );
+                    function moveToSourceCode() {{
 
-                    if (element) {
+                        try {{
 
-                        element.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start"
-                        });
+                            const parentDocument =
+                                window.parent.document;
 
-                    }
+                            const sourceSection =
+                                parentDocument.getElementById(
+                                    "source-code-section-" +
+                                    scrollId
+                                );
 
-                }, 800);
+                            if (!sourceSection) {{
+                                return false;
+                            }}
 
+                            sourceSection.scrollIntoView({{
+                                behavior: "smooth",
+                                block: "start",
+                                inline: "nearest"
+                            }});
+
+                            return true;
+
+                        }} catch (error) {{
+
+                            return false;
+                        }}
+                    }}
+
+
+                    /*
+                     * The unique scroll ID makes this a
+                     * completely new DOM target on every
+                     * Open click.
+                     */
+                    setTimeout(
+                        function() {{
+                            moveToSourceCode();
+                        }},
+                        350
+                    );
+
+                }})();
                 </script>
                 """,
                 height=1
@@ -753,32 +1518,249 @@ if st.session_state.repository_analyzed:
 
             st.session_state.scroll_to_code = False
 
-
-        # --------------------------------
+        # ----------------------------------------------------
         # Selected File
-        # --------------------------------
+        # ----------------------------------------------------
 
         st.write(
             f"File: "
             f"**{st.session_state.selected_file}**"
         )
 
-
-        # --------------------------------
-        # Detect Programming Language
-        # --------------------------------
+        # ----------------------------------------------------
+        # Programming Language
+        # ----------------------------------------------------
 
         language = get_language_from_file(
             st.session_state.selected_file
         )
 
+        # ----------------------------------------------------
+        # Prepare Code
+        # ----------------------------------------------------
 
-        # --------------------------------
-        # Display Source Code
-        # --------------------------------
-
-        st.code(
-            st.session_state.source_code,
-            language=language
+        source_lines = (
+            st.session_state.source_code.splitlines()
         )
 
+        selected_line = (
+            st.session_state.selected_line
+        )
+
+        code_html_parts = []
+
+        for line_number, line in enumerate(
+            source_lines,
+            start=1
+        ):
+
+            escaped_line = html.escape(
+                line
+            )
+
+            if line_number == selected_line:
+
+                line_class = (
+                    "git-sense-code-line "
+                    "git-sense-selected-line"
+                )
+
+            else:
+
+                line_class = (
+                    "git-sense-code-line"
+                )
+
+            code_html_parts.append(
+                f"""
+                <div
+                    id="source-code-line-{line_number}"
+                    class="{line_class}">
+                    <span
+                        class="git-sense-line-number">
+                        {line_number}
+                    </span>
+                    <span
+                        class="git-sense-line-code">
+                        {escaped_line}
+                    </span>
+                </div>
+                """
+            )
+
+        code_html = "".join(
+            code_html_parts
+        )
+
+        # ----------------------------------------------------
+        # Code Viewer
+        # ----------------------------------------------------
+
+        components.html(
+            f"""
+            <style>
+
+                .git-sense-code-container {{
+                    background: #0e1117;
+                    border: 1px solid
+                        rgba(250, 250, 250, 0.2);
+                    border-radius: 0.5rem;
+                    padding: 12px 0;
+                    overflow-x: auto;
+                    overflow-y: auto;
+                    width: 100%;
+                    height: 650px;
+                    box-sizing: border-box;
+                    font-family:
+                        "Source Code Pro",
+                        "Consolas",
+                        "Monaco",
+                        monospace;
+                    font-size: 14px;
+                    line-height: 1.5;
+                }}
+
+                .git-sense-code-line {{
+                    display: flex;
+                    min-height: 21px;
+                    width: max-content;
+                    min-width: 100%;
+                    box-sizing: border-box;
+                    padding-right: 20px;
+                }}
+
+                .git-sense-code-line:hover {{
+                    background: rgba(
+                        255,
+                        255,
+                        255,
+                        0.04
+                    );
+                }}
+
+                .git-sense-selected-line {{
+                    background: rgba(
+                        255,
+                        193,
+                        7,
+                        0.30
+                    ) !important;
+
+                    border-left: 4px solid
+                        #ffc107;
+                }}
+
+                .git-sense-line-number {{
+                    display: inline-block;
+                    width: 60px;
+                    min-width: 60px;
+                    padding-right: 15px;
+                    text-align: right;
+                    color: #8b949e;
+                    user-select: none;
+                    box-sizing: border-box;
+                }}
+
+                .git-sense-selected-line
+                .git-sense-line-number {{
+                    color: #ffc107;
+                    font-weight: bold;
+                }}
+
+                .git-sense-line-code {{
+                    white-space: pre;
+                    color: #e6edf3;
+                }}
+
+            </style>
+
+            <div
+                id="git-sense-code-container"
+                class="git-sense-code-container">
+
+                {code_html}
+
+            </div>
+
+            <script>
+
+                const selectedLine =
+                    {selected_line or 0};
+
+
+                function scrollInsideCode() {{
+
+                    if (selectedLine <= 0) {{
+                        return false;
+                    }}
+
+                    const lineElement =
+                        document.getElementById(
+                            "source-code-line-" +
+                            selectedLine
+                        );
+
+                    const codeContainer =
+                        document.getElementById(
+                            "git-sense-code-container"
+                        );
+
+                    if (
+                        !lineElement ||
+                        !codeContainer
+                    ) {{
+                        return false;
+                    }}
+
+                    const lineTop =
+                        lineElement.offsetTop;
+
+                    const lineHeight =
+                        lineElement.offsetHeight;
+
+                    const containerHeight =
+                        codeContainer.clientHeight;
+
+                    const targetScroll =
+                        lineTop -
+                        (containerHeight / 2) +
+                        (lineHeight / 2);
+
+                    codeContainer.scrollTo({{
+                        top: Math.max(
+                            targetScroll,
+                            0
+                        ),
+                        behavior: "smooth"
+                    }});
+
+                    return true;
+                }}
+
+
+                /*
+                 * Move to the matching line inside
+                 * the code viewer.
+                 */
+                setTimeout(
+                    function() {{
+                        scrollInsideCode();
+                    }},
+                    400
+                );
+
+            </script>
+            """,
+            height=680,
+            scrolling=False
+        )
+# ============================================================
+# CODE INTELLIGENCE
+# ============================================================
+
+st.divider()
+
+render_code_intelligence(
+    st.session_state.username,
+    st.session_state.repository
+)
